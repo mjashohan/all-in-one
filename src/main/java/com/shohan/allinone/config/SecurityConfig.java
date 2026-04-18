@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -18,12 +19,12 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -38,40 +39,44 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authenticationProvider(authenticationProvider())
-            .authorizeHttpRequests(auth -> auth
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                .authenticationProvider(authenticationProvider())
+                .authorizeHttpRequests(auth -> auth
 
-                // ── Public endpoints ──────────────────────────────────────
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/messages").permitAll()
-                .requestMatchers(HttpMethod.GET,  "/api/projects/**").permitAll()
-                .requestMatchers(HttpMethod.GET,  "/api/blogs/**").permitAll()
+                        // ── Public endpoints ──────────────────────────────────────
+                        .requestMatchers("/", "/error").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/messages").permitAll()
+                        .requestMatchers(HttpMethod.GET,  "/api/projects/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,  "/api/blogs/**").permitAll()
 
-                // ── Admin-only endpoints ──────────────────────────────────
-                .requestMatchers("/api/users/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/messages/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET,    "/api/messages/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST,   "/api/projects/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT,    "/api/projects/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/projects/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST,   "/api/blogs/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT,    "/api/blogs/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/blogs/**").hasRole("ADMIN")
+                        // ── Admin-only endpoints ──────────────────────────────────
+                        .requestMatchers("/api/users/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/messages/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET,    "/api/messages/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST,   "/api/projects/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT,    "/api/projects/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/projects/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST,   "/api/blogs/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT,    "/api/blogs/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/blogs/**").hasRole("ADMIN")
 
-                // ── Everything else requires authentication ────────────────
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                        // ── Everything else requires authentication ────────────────
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
+        // Spring Security 7: constructor takes (UserDetailsService, PasswordEncoder)
         return new DaoAuthenticationProvider(userDetailsService);
     }
 
@@ -89,7 +94,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+        config.setAllowedOriginPatterns(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
