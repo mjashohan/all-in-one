@@ -5,6 +5,7 @@ import com.shohan.allinone.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -36,9 +37,14 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter  jwtAuthFilter;
     private final CustomUserDetailsService userDetailsService;
 
+    /* ──────────────────────────────────────────────────────────────────────
+       Chain #1  —  /api/**  →  stateless JWT
+       ────────────────────────────────────────────────────────────────────── */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    @Order(1)
+    public SecurityFilterChain apiFilterChain(HttpSecurity http) throws Exception {
         http
+                .securityMatcher("/api/**")
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session ->
@@ -48,14 +54,13 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
 
-                        // ── Public endpoints ──────────────────────────────────────
-                        .requestMatchers("/", "/error").permitAll()
+                        // ── Public API endpoints ────────────────────────────────
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/messages").permitAll()
                         .requestMatchers(HttpMethod.GET,  "/api/projects/**").permitAll()
                         .requestMatchers(HttpMethod.GET,  "/api/blogs/**").permitAll()
 
-                        // ── Admin-only endpoints ──────────────────────────────────
+                        // ── Admin-only API endpoints ────────────────────────────
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/messages/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET,    "/api/messages/**").hasRole("ADMIN")
@@ -66,7 +71,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT,    "/api/blogs/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/blogs/**").hasRole("ADMIN")
 
-                        // ── Everything else requires authentication ────────────────
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -74,10 +78,37 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /* ──────────────────────────────────────────────────────────────────────
+       Chain #2  —  everything else  →  default Spring login form
+       ────────────────────────────────────────────────────────────────────── */
+    @Bean
+    @Order(2)
+    public SecurityFilterChain webFilterChain(HttpSecurity http) throws Exception {
+        http
+                .authenticationProvider(authenticationProvider())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/", "/error", "/login", "/logout").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .formLogin(form -> form
+                        .defaultSuccessUrl("/", true)
+                        .permitAll())
+                .logout(logout -> logout
+                        .logoutSuccessUrl("/login?logout")
+                        .permitAll());
+
+        return http.build();
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────
+       Shared beans
+       ────────────────────────────────────────────────────────────────────── */
+
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        // Spring Security 7: constructor takes (UserDetailsService, PasswordEncoder)
-        return new DaoAuthenticationProvider(userDetailsService);
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
     }
 
     @Bean
