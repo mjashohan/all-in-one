@@ -53,14 +53,10 @@ public class SecurityConfig {
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
-
-                        // ── Public API endpoints ────────────────────────────────
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/messages").permitAll()
                         .requestMatchers(HttpMethod.GET,  "/api/projects/**").permitAll()
                         .requestMatchers(HttpMethod.GET,  "/api/blogs/**").permitAll()
-
-                        // ── Admin-only API endpoints ────────────────────────────
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/messages/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET,    "/api/messages/**").hasRole("ADMIN")
@@ -70,7 +66,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,   "/api/blogs/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT,    "/api/blogs/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/blogs/**").hasRole("ADMIN")
-
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -85,6 +80,7 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain webFilterChain(HttpSecurity http) throws Exception {
         http
+                .csrf(AbstractHttpConfigurer::disable)
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/error", "/login", "/logout").permitAll()
@@ -94,7 +90,7 @@ public class SecurityConfig {
                         .defaultSuccessUrl("/", true)
                         .permitAll())
                 .logout(logout -> logout
-                        .logoutSuccessUrl("/login?logout")
+                        .logoutSuccessUrl("/")        // ← redirect straight to landing page
                         .permitAll());
 
         return http.build();
