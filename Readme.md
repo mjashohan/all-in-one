@@ -161,7 +161,7 @@ The frontend is structured so that a future React Native port only needs to swap
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<your-username>/all-in-one.git
+git clone https://github.com/mjashohan/all-in-one.git
 cd all-in-one
 ```
 
@@ -278,12 +278,12 @@ Authorization: Bearer <your-jwt-token>
 
 On first startup, `DataInitializer` seeds an admin account if none exists:
 
-| Field | Value |
-| --- | --- |
-| Username | `admin` |
-| Password | `amishohan` |
-| Email | `admin@allinone.com` |
-| Role | `ADMIN` |
+| Field    | Value                                         |
+|----------|-----------------------------------------------|
+| Username | `admin`                                       |
+| Password | `{Yousuf, tumi jano ki password disi ami xD}` |
+| Email    | `admin@allinone.com`                          |
+| Role     | `ADMIN`                                       |
 
 > **Change this password immediately in production.**
 
@@ -313,9 +313,3 @@ This project is licensed under the MIT License — feel free to use it as a star
 Built with Spring Boot, React, and a fair amount of coffee.
 
 ---
-
-<div align="center">
-
-If this project helped you, consider giving it a ⭐ on GitHub.
-
-</div>
