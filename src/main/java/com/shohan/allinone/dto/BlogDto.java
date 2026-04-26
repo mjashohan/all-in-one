@@ -24,6 +24,7 @@ public class BlogDto {
         private String category;
         private String coverImageUrl;
         private String excerpt;
+        // No slug here — the server generates it from the title.
     }
 
     @Data
@@ -33,6 +34,7 @@ public class BlogDto {
     public static class Response {
         private Long id;
         private String title;
+        private String slug;
         private String content;
         private String category;
         private String coverImageUrl;

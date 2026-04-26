@@ -27,16 +27,21 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import ArticleIcon from '@mui/icons-material/Article';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { useAuth } from '../contexts/AuthContext';
 import {
   listBlogs,
   createBlog,
   updateBlog,
   deleteBlog,
+  uploadBlogCover,
 } from '../api/blogs';
 
 const FALLBACK_IMG =
     'https://placehold.co/600x400/e3eaf6/2a5db0?text=No+Cover+Image';
+
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 const emptyForm = {
   title: '',
@@ -65,6 +70,10 @@ export default function Blogs() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
+
+  // Upload state (lives inside the editor dialog)
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
 
   const fetchBlogs = async () => {
     setLoading(true);
@@ -104,6 +113,7 @@ export default function Blogs() {
     setEditingId(null);
     setForm(emptyForm);
     setFormError(null);
+    setUploadError(null);
     setEditorOpen(true);
   };
 
@@ -117,12 +127,46 @@ export default function Blogs() {
       coverImageUrl: blog.coverImageUrl || '',
     });
     setFormError(null);
+    setUploadError(null);
     setEditorOpen(true);
   };
 
   const closeEditor = () => {
-    if (saving) return;
+    if (saving || uploading) return;
     setEditorOpen(false);
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    // Reset the input so picking the same file again still triggers onChange.
+    e.target.value = '';
+    if (!file) return;
+
+    // Client-side validation. The server validates again — this is just for UX.
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      setUploadError('Only JPG, PNG, GIF, and WebP are allowed.');
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setUploadError('Image must be 5 MB or smaller.');
+      return;
+    }
+
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const { url } = await uploadBlogCover(file);
+      setForm((f) => ({ ...f, coverImageUrl: url }));
+    } catch (err) {
+      setUploadError(err.response?.data?.message || 'Failed to upload image.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveCover = () => {
+    setForm((f) => ({ ...f, coverImageUrl: '' }));
+    setUploadError(null);
   };
 
   const handleSave = async () => {
@@ -499,17 +543,104 @@ export default function Blogs() {
                     setForm((f) => ({ ...f, category: e.target.value }))
                 }
             />
-            <TextField
-                fullWidth
-                margin="normal"
-                label="Cover image URL"
-                placeholder="https://..."
-                value={form.coverImageUrl}
-                onChange={(e) =>
-                    setForm((f) => ({ ...f, coverImageUrl: e.target.value }))
-                }
-                helperText="Used as the thumbnail on the blog grid."
-            />
+
+            {/* Cover image picker */}
+            <Box sx={{ mt: 2, mb: 1 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Cover image
+              </Typography>
+              {form.coverImageUrl ? (
+                  <Box
+                      sx={{
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 2,
+                        p: 1.5,
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        gap: 2,
+                      }}
+                  >
+                    <Box
+                        component="img"
+                        src={form.coverImageUrl}
+                        alt="Cover preview"
+                        sx={{
+                          width: { xs: '100%', sm: 160 },
+                          height: 100,
+                          objectFit: 'cover',
+                          borderRadius: 1,
+                          flexShrink: 0,
+                        }}
+                    />
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        Cover image uploaded.
+                      </Typography>
+                      <Stack direction="row" spacing={1}>
+                        <Button
+                            size="small"
+                            component="label"
+                            variant="outlined"
+                            disabled={uploading}
+                        >
+                          Replace
+                          <input
+                              hidden
+                              type="file"
+                              accept={ACCEPTED_TYPES.join(',')}
+                              onChange={handleFileChange}
+                          />
+                        </Button>
+                        <Button
+                            size="small"
+                            color="error"
+                            onClick={handleRemoveCover}
+                            disabled={uploading}
+                        >
+                          Remove
+                        </Button>
+                      </Stack>
+                    </Box>
+                  </Box>
+              ) : (
+                  <Button
+                      component="label"
+                      variant="outlined"
+                      startIcon={
+                        uploading ? (
+                            <CircularProgress size={16} />
+                        ) : (
+                            <CloudUploadIcon />
+                        )
+                      }
+                      disabled={uploading}
+                      sx={{ alignSelf: 'flex-start' }}
+                  >
+                    {uploading ? 'Uploading...' : 'Upload cover image'}
+                    <input
+                        hidden
+                        type="file"
+                        accept={ACCEPTED_TYPES.join(',')}
+                        onChange={handleFileChange}
+                    />
+                  </Button>
+              )}
+              {uploadError && (
+                  <Alert severity="error" sx={{ mt: 1 }}>
+                    {uploadError}
+                  </Alert>
+              )}
+              <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mt: 1 }}
+              >
+                JPG, PNG, GIF, or WebP. Max 5 MB.
+              </Typography>
+            </Box>
+
             <TextField
                 fullWidth
                 margin="normal"
@@ -536,10 +667,14 @@ export default function Blogs() {
             />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={closeEditor} disabled={saving}>
+            <Button onClick={closeEditor} disabled={saving || uploading}>
               Cancel
             </Button>
-            <Button variant="contained" onClick={handleSave} disabled={saving}>
+            <Button
+                variant="contained"
+                onClick={handleSave}
+                disabled={saving || uploading}
+            >
               {saving ? (
                   <CircularProgress size={20} color="inherit" />
               ) : editingId ? (

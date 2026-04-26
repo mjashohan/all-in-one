@@ -7,8 +7,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +22,7 @@ public class BlogService {
     public BlogDto.Response create(BlogDto.Request request) {
         Blog blog = Blog.builder()
                 .title(request.getTitle())
+                .slug(generateUniqueSlug(request.getTitle()))
                 .content(request.getContent())
                 .category(request.getCategory())
                 .coverImageUrl(request.getCoverImageUrl())
@@ -65,6 +68,8 @@ public class BlogService {
         blog.setCategory(request.getCategory());
         blog.setCoverImageUrl(request.getCoverImageUrl());
         blog.setExcerpt(request.getExcerpt());
+        // Slug is intentionally NOT regenerated. Stable URLs are an SEO contract —
+        // once a post is live, its URL shouldn't change just because the title was tweaked.
         return toResponse(blogRepository.save(blog));
     }
 
@@ -76,7 +81,9 @@ public class BlogService {
         blogRepository.deleteById(id);
     }
 
-    /* ── Helpers ── */
+    /* ──────────────────────────────────────────────────────────────────────
+       Helpers
+       ────────────────────────────────────────────────────────────────────── */
 
     private Blog findOrThrow(Long id) {
         return blogRepository.findById(id)
@@ -87,11 +94,48 @@ public class BlogService {
         return BlogDto.Response.builder()
                 .id(b.getId())
                 .title(b.getTitle())
+                .slug(b.getSlug())
                 .content(b.getContent())
                 .category(b.getCategory())
                 .coverImageUrl(b.getCoverImageUrl())
                 .excerpt(b.getExcerpt())
                 .publishedDate(b.getPublishedDate())
                 .build();
+    }
+
+    /**
+     * Generate a URL-friendly, unique slug from a title.
+     * "Hello, World! 2026" → "hello-world-2026"
+     * Collisions get "-2", "-3", etc. appended. Pathological cases get a UUID suffix.
+     */
+    private String generateUniqueSlug(String title) {
+        String base = slugify(title);
+        if (base.isEmpty()) base = "post";
+
+        String candidate = base;
+        int counter = 2;
+        while (blogRepository.existsBySlug(candidate)) {
+            candidate = base + "-" + counter++;
+            if (counter > 100) {
+                // Should never realistically happen — bail out with a guaranteed-unique suffix.
+                candidate = base + "-" + UUID.randomUUID().toString().substring(0, 8);
+                break;
+            }
+        }
+        return candidate;
+    }
+
+    private String slugify(String input) {
+        if (input == null) return "";
+        // Normalize accented characters (é → e, ñ → n, etc.) before stripping.
+        String normalized = Normalizer.normalize(input, Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+        String slug = normalized.toLowerCase()
+                .replaceAll("[^a-z0-9\\s-]", "")  // strip non-alphanumeric
+                .replaceAll("\\s+", "-")            // spaces → hyphens
+                .replaceAll("-+", "-")              // collapse hyphen runs
+                .replaceAll("^-|-$", "");           // trim leading/trailing hyphens
+        // Leave headroom for a "-N" or UUID suffix without exceeding the 200-char column.
+        return slug.length() > 180 ? slug.substring(0, 180) : slug;
     }
 }

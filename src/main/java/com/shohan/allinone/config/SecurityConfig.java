@@ -57,6 +57,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/messages").permitAll()
                         .requestMatchers(HttpMethod.GET,  "/api/projects/**").permitAll()
                         .requestMatchers(HttpMethod.GET,  "/api/blogs/**").permitAll()
+                        // ── Uploads: GET is public so anyone can view blog cover images;
+                        //              POST is admin-only (also enforced by @PreAuthorize).
+                        .requestMatchers(HttpMethod.GET,  "/api/uploads/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/uploads/**").hasRole("ADMIN")
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/messages/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET,    "/api/messages/**").hasRole("ADMIN")
@@ -90,7 +94,7 @@ public class SecurityConfig {
                         .defaultSuccessUrl("/", true)
                         .permitAll())
                 .logout(logout -> logout
-                        .logoutSuccessUrl("/")        // ← redirect straight to landing page
+                        .logoutSuccessUrl("/")
                         .permitAll());
 
         return http.build();

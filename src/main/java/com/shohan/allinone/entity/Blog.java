@@ -21,6 +21,9 @@ public class Blog {
     @Column(length = 200)
     private String title;
 
+    @Column(length = 200, nullable = false, unique = true)
+    private String slug;
+
     @Column(columnDefinition = "TEXT")
     private String content;
 

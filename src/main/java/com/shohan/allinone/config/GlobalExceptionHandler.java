@@ -1,6 +1,7 @@
 package com.shohan.allinone.config;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -8,6 +9,8 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
@@ -59,6 +62,29 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleAuthentication(
             AuthenticationException ex) {
         return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage(), null);
+    }
+
+    /**
+     * Code that throws ResponseStatusException is asking for a specific HTTP status —
+     * honor it instead of letting it fall through to the generic 500 handler.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex) {
+        HttpStatusCode code = ex.getStatusCode();
+        HttpStatus status = HttpStatus.resolve(code.value());
+        if (status == null) status = HttpStatus.INTERNAL_SERVER_ERROR;
+        return buildResponse(status, ex.getReason(), null);
+    }
+
+    /**
+     * Triggered when an uploaded multipart file exceeds the limits in
+     * application.properties. Spring throws this before our controller code runs,
+     * so we need to handle it explicitly to return a clean 413 instead of a 500.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleMaxSize(MaxUploadSizeExceededException ex) {
+        return buildResponse(HttpStatus.CONTENT_TOO_LARGE,
+                "Uploaded file is too large.", null);
     }
 
     @ExceptionHandler(Exception.class)
