@@ -22,6 +22,8 @@ public class BlogService {
                 .title(request.getTitle())
                 .content(request.getContent())
                 .category(request.getCategory())
+                .coverImageUrl(request.getCoverImageUrl())
+                .excerpt(request.getExcerpt())
                 .build();
         return toResponse(blogRepository.save(blog));
     }
@@ -61,6 +63,8 @@ public class BlogService {
         blog.setTitle(request.getTitle());
         blog.setContent(request.getContent());
         blog.setCategory(request.getCategory());
+        blog.setCoverImageUrl(request.getCoverImageUrl());
+        blog.setExcerpt(request.getExcerpt());
         return toResponse(blogRepository.save(blog));
     }
 
@@ -85,6 +89,8 @@ public class BlogService {
                 .title(b.getTitle())
                 .content(b.getContent())
                 .category(b.getCategory())
+                .coverImageUrl(b.getCoverImageUrl())
+                .excerpt(b.getExcerpt())
                 .publishedDate(b.getPublishedDate())
                 .build();
     }

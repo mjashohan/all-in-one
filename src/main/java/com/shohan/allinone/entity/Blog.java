@@ -27,6 +27,12 @@ public class Blog {
     @Column(length = 100)
     private String category;
 
+    @Column(name = "cover_image_url", length = 255)
+    private String coverImageUrl;
+
+    @Column(length = 500)
+    private String excerpt;
+
     @Column(name = "published_date", updatable = false)
     @Builder.Default
     private LocalDateTime publishedDate = LocalDateTime.now();

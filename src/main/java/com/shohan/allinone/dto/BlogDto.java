@@ -22,6 +22,8 @@ public class BlogDto {
         private String content;
 
         private String category;
+        private String coverImageUrl;
+        private String excerpt;
     }
 
     @Data
@@ -33,6 +35,8 @@ public class BlogDto {
         private String title;
         private String content;
         private String category;
+        private String coverImageUrl;
+        private String excerpt;
         private LocalDateTime publishedDate;
     }
 }
